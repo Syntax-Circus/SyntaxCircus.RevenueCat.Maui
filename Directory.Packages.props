@@ -1,0 +1,22 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Kebechet.Maui.RevenueCat.InAppBilling" Version="7.0.0" />
+    <!-- Kebechet 7.0.0's own AndroidX Lifecycle pin (2.8.5.1) doesn't match what NuGet actually
+         resolves against MAUI's default AndroidX versions — pin the family explicitly. -->
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData" Version="2.10.0.2" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData.Core" Version="2.10.0.2" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.10.0.2" />
+    <!-- Kebechet transitively pulls a vulnerable SharpCompress; pin to a patched version. -->
+    <PackageVersion Include="SharpCompress" Version="0.48.1" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+    <PackageVersion Include="GitVersion.MsBuild" Version="6.6.0" />
+  </ItemGroup>
+</Project>
