@@ -1,0 +1,12 @@
+global using Maui.RevenueCat.InAppBilling.Enums;
+global using Maui.RevenueCat.InAppBilling.Models;
+global using Maui.RevenueCat.InAppBilling.Services;
+global using Microsoft.Extensions.Configuration;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Logging.Abstractions;
+global using NSubstitute;
+global using NSubstitute.ExceptionExtensions;
+global using Shouldly;
+global using SyntaxCircus.RevenueCat.Maui.Tests.Infrastructure;
+global using Xunit;
+global using LogLevel = Microsoft.Extensions.Logging.LogLevel;
