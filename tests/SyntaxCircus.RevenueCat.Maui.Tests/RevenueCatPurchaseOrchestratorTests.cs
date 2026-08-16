@@ -78,6 +78,35 @@ public class RevenueCatPurchaseOrchestratorTests
     }
 
     [Fact]
+    public async Task PurchaseAsync_MatchesNormalizedIdentifiers()
+    {
+        var package = CreatePackage("pkg-monthly", "sku-monthly");
+        var billing = CreateBillingWithOffering(package);
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto { IsSuccess = true });
+
+        var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, " sku_monthly ", NullLogger.Instance, TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task PurchaseAsync_CustomResolverCanSelectPackage()
+    {
+        var package = CreatePackage("pkg_monthly", "sku_monthly");
+        var billing = CreateBillingWithOffering(package);
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto { IsSuccess = true });
+
+        var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(
+            billing,
+            "button-package",
+            NullLogger.Instance,
+            (_, _) => package,
+            TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task PurchaseAsync_SuccessfulPurchase_ReturnsTransactionAndAppUserId()
     {
         var package = CreatePackage("pkg_monthly", "sku_monthly");

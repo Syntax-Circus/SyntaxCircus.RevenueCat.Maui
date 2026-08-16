@@ -17,16 +17,29 @@ public static partial class RevenueCatPurchaseOrchestrator
         string productIdentifier,
         ILogger logger,
         CancellationToken ct = default)
+        => await PurchaseAsync(billing, productIdentifier, logger, packageResolver: null, ct: ct).ConfigureAwait(false);
+
+    /// <summary>
+    /// Finds a package in the current offering using a caller-provided resolver and purchases it.
+    /// A user-cancelled purchase comes back as <see cref="RevenueCatPurchaseResult.WasCancelled"/>,
+    /// not as a thrown exception.
+    /// </summary>
+    public static async Task<RevenueCatPurchaseResult> PurchaseAsync(
+        IRevenueCatBilling billing,
+        string productIdentifier,
+        ILogger logger,
+        Func<IReadOnlyList<PackageDto>, string, PackageDto?>? packageResolver,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(billing);
         ArgumentNullException.ThrowIfNull(productIdentifier);
         ArgumentNullException.ThrowIfNull(logger);
-
         var offerings = await billing.GetOfferings(forceRefresh: false, cancellationToken: ct).ConfigureAwait(false);
         var current = offerings.GetCurrent();
-        var package = current?.AvailablePackages.FirstOrDefault(p =>
-            string.Equals(p.Product.Sku, productIdentifier, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.Identifier, productIdentifier, StringComparison.OrdinalIgnoreCase));
+        var package = current is null
+            ? null
+            : packageResolver?.Invoke(current.AvailablePackages, productIdentifier)
+                ?? current.AvailablePackages.FirstOrDefault(p => PackageMatchesProductIdentifier(p, productIdentifier));
 
         if (package is null)
         {
@@ -52,6 +65,29 @@ public static partial class RevenueCatPurchaseOrchestrator
             TransactionId: storeResult.Transaction?.TransactionIdentifier,
             AppUserId: billing.GetAppUserId());
     }
+
+    private static bool PackageMatchesProductIdentifier(PackageDto package, string productIdentifier)
+    {
+        return MatchesIdentifier(package.Identifier, productIdentifier)
+            || MatchesIdentifier(package.Product.Sku, productIdentifier);
+    }
+
+    private static bool MatchesIdentifier(string? left, string right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
+            return false;
+        }
+
+        var trimmedLeft = left.Trim();
+        var trimmedRight = right.Trim();
+
+        return string.Equals(trimmedLeft, trimmedRight, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(NormalizeIdentifier(trimmedLeft), NormalizeIdentifier(trimmedRight), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeIdentifier(string value)
+        => new string(value.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
 
     /// <summary>
     /// Re-syncs identity (if <paramref name="userId"/> is known) and restores prior store

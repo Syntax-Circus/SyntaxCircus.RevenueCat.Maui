@@ -16,7 +16,25 @@ public static class RevenueCatInitializer
         ArgumentNullException.ThrowIfNull(billing);
         ArgumentNullException.ThrowIfNull(options);
 
-        var apiKey = ResolvePlatformApiKey(options);
+        var platform = GetCompileTimePlatform();
+        if (platform is null)
+        {
+            return false;
+        }
+
+        return TryInitialize(billing, options, platform.Value);
+    }
+
+    /// <summary>
+    /// Initializes <paramref name="billing"/> for an explicit platform. This avoids compile-time
+    /// platform symbol checks and is useful in tests or other non-mobile hosts.
+    /// </summary>
+    public static bool TryInitialize(IRevenueCatBilling billing, RevenueCatBillingOptions options, RevenueCatPlatform platform)
+    {
+        ArgumentNullException.ThrowIfNull(billing);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var apiKey = ResolvePlatformApiKey(options, platform);
         if (string.IsNullOrEmpty(apiKey))
         {
             return false;
@@ -26,14 +44,52 @@ public static class RevenueCatInitializer
         return true;
     }
 
-    private static string ResolvePlatformApiKey(RevenueCatBillingOptions options)
+    /// <summary>
+    /// Initializes <paramref name="billing"/> using a custom API-key resolver. The resolver can
+    /// decide which key to use without depending on compile-time platform symbols.
+    /// </summary>
+    public static bool TryInitialize(
+        IRevenueCatBilling billing,
+        RevenueCatBillingOptions options,
+        Func<RevenueCatBillingOptions, string?> apiKeyResolver)
+    {
+        ArgumentNullException.ThrowIfNull(billing);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(apiKeyResolver);
+
+        var apiKey = apiKeyResolver(options);
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            return false;
+        }
+
+        billing.Initialize(apiKey);
+        return true;
+    }
+
+    private static RevenueCatPlatform? GetCompileTimePlatform()
     {
 #if ANDROID
-        return options.AndroidApiKey;
+        return RevenueCatPlatform.Android;
 #elif IOS
-        return options.IosApiKey;
+        return RevenueCatPlatform.Ios;
 #else
-        return string.Empty;
+        return null;
 #endif
     }
+
+    private static string? ResolvePlatformApiKey(RevenueCatBillingOptions options, RevenueCatPlatform platform)
+        => platform switch
+        {
+            RevenueCatPlatform.Android => options.AndroidApiKey,
+            RevenueCatPlatform.Ios => options.IosApiKey,
+            _ => null,
+        };
+}
+
+/// <summary>Explicit platform selector for RevenueCat initialization.</summary>
+public enum RevenueCatPlatform
+{
+    Android,
+    Ios,
 }

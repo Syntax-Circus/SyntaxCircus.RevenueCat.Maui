@@ -38,4 +38,31 @@ public class RevenueCatInitializerTests
 
         result.ShouldBeFalse();
     }
+
+    [Fact]
+    public void TryInitialize_ExplicitPlatform_UsesMatchingKey()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        var options = new RevenueCatBillingOptions { AndroidApiKey = "android_key", IosApiKey = "ios_key" };
+
+        var result = RevenueCatInitializer.TryInitialize(billing, options, RevenueCatPlatform.Android);
+
+        result.ShouldBeTrue();
+        billing.Received(1).Initialize("android_key");
+    }
+
+    [Fact]
+    public void TryInitialize_CustomResolver_UsesResolvedKey()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        var options = new RevenueCatBillingOptions { AndroidApiKey = "android_key", IosApiKey = "ios_key" };
+
+        var result = RevenueCatInitializer.TryInitialize(
+            billing,
+            options,
+            o => o.IosApiKey);
+
+        result.ShouldBeTrue();
+        billing.Received(1).Initialize("ios_key");
+    }
 }

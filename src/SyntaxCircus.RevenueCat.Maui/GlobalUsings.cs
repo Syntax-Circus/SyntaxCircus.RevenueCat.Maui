@@ -1,6 +1,7 @@
 global using Maui.RevenueCat.InAppBilling; // RevenueCatBillingInstaller.AddRevenueCatBilling(IServiceCollection)
 global using Maui.RevenueCat.InAppBilling.Enums;
 global using Maui.RevenueCat.InAppBilling.Extensions;
+global using Maui.RevenueCat.InAppBilling.Models;
 global using Maui.RevenueCat.InAppBilling.Services;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
