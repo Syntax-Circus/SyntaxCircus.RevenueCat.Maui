@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Matches the vendor SDK's own real-world coverage (confirmed via sinforgiver's usage) —
-         no maccatalyst/windows target until that's verified to actually work. net10.0 is added
+    <!-- no maccatalyst/windows target until that's verified to actually work. net10.0 is added
          purely as a unit-test host TFM (see tests/), not a shipped app target. -->
     <TargetFrameworks>net10.0-android;net10.0-ios;net10.0</TargetFrameworks>
     <UseMaui>true</UseMaui>
