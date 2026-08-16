@@ -1,6 +1,7 @@
 # SyntaxCircus.RevenueCat.Maui
 
 [![Build](https://github.com/Syntax-Circus/SyntaxCircus.RevenueCat.Maui/actions/workflows/build.yml/badge.svg)](https://github.com/Syntax-Circus/SyntaxCircus.RevenueCat.Maui/actions/workflows/build.yml)
+[![NuGet](https://img.shields.io/nuget/v/SyntaxCircus.RevenueCat.Maui.svg)](https://www.nuget.org/packages/SyntaxCircus.RevenueCat.Maui)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.txt)
 
 Client-side RevenueCat helpers for MAUI apps, built on top of [`Kebechet.Maui.RevenueCat.InAppBilling`](https://www.nuget.org/packages/Kebechet.Maui.RevenueCat.InAppBilling) (the vendor SDK binding — not reimplemented here). Covers SDK initialization, identity sync on login, offering-to-DTO mapping, and a purchase/restore orchestrator.
