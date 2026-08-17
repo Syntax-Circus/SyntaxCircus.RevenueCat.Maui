@@ -21,9 +21,11 @@ For backend-side RevenueCat integration (webhook verification, REST clients), se
 | `AddRevenueCatMaui(...)` | Registers the vendor billing service and binds `RevenueCatBillingOptions` from configuration. |
 | `RevenueCatInitializer.TryInitialize(...)` | Chooses the correct publishable key and initializes the SDK. |
 | `RevenueCatIdentitySync.SyncLoginAsync(...)` | Keeps RevenueCat `app_user_id` aligned with your app user after login. |
+| `RevenueCatIdentitySync.SyncLogoutAsync(...)` | Detaches the RevenueCat `app_user_id` at sign-out and returns to an anonymous identity. |
 | `RevenueCatOfferingsMapper.GetCurrentProductsAsync(...)` | Flattens the current RevenueCat offering into simple product DTOs. |
 | `RevenueCatPurchaseOrchestrator.PurchaseAsync(...)` | Resolves a package and starts a purchase flow. |
 | `RevenueCatPurchaseOrchestrator.RestoreAsync(...)` | Restores prior store transactions and re-syncs identity when needed. |
+| `RevenueCatManagementUrl.GetAsync(...)` | Returns the subscription management URL (App Store / Play Store / customer portal) for the current user. |
 
 ## Quick start
 
@@ -80,6 +82,13 @@ await RevenueCatIdentitySync.SyncLoginAsync(billing, userId, logger, ct);
 
 Failures are logged and swallowed — this is best-effort, not something worth failing app startup over.
 
+Call `SyncLogoutAsync` at sign-out to detach the `app_user_id` and return RevenueCat to an
+anonymous identity — same best-effort swallow behavior as `SyncLoginAsync`:
+
+```csharp
+await RevenueCatIdentitySync.SyncLogoutAsync(billing, logger, ct);
+```
+
 ### Products
 
 ```csharp
@@ -122,12 +131,24 @@ RevenueCatPurchaseResult restoreResult =
 
 `PurchaseAsync` and `RestoreAsync` only own the store interaction — recording a successful purchase against your own backend (subscriber verification, entitlement grants, etc.) is deliberately left to the caller, the same split `SyntaxCircus.RevenueCat`'s webhook reader uses on the backend side.
 
+### Subscription management URL
+
+```csharp
+string? managementUrl = await RevenueCatManagementUrl.GetAsync(billing, ct);
+```
+
+Unlike the identity-sync helpers, failures here are **not** swallowed — this is typically used to
+populate a "Manage Subscription" link, so a thrown exception is more useful to the caller than a
+silently missing or broken link.
+
 ## Behavior notes
 
 - `PurchaseAsync` returns `WasCancelled = true` for a user-cancelled store flow instead of throwing.
 - `RestoreAsync` logs and returns a failure result for non-cancellation errors.
 - The default `TryInitialize(billing, options)` method keeps the existing compile-time Android/iOS behavior.
 - The explicit `RevenueCatPlatform` and resolver overloads are the non-breaking escape hatches for tests and custom hosts.
+- `SyncLogoutAsync` mirrors `SyncLoginAsync`'s best-effort swallow-and-log behavior (cancellation still propagates).
+- `RevenueCatManagementUrl.GetAsync` does not swallow exceptions — like `GetCurrentProductsAsync`, it's a direct query and lets failures propagate to the caller.
 
 ## Contributing
 

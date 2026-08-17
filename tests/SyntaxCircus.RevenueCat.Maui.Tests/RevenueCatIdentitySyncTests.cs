@@ -62,4 +62,45 @@ public class RevenueCatIdentitySyncTests
         await Should.ThrowAsync<OperationCanceledException>(() =>
             RevenueCatIdentitySync.SyncLoginAsync(billing, "user1", NullLogger.Instance, TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    public async Task SyncLogoutAsync_NullBilling_ThrowsArgumentNullException()
+        => await Should.ThrowAsync<ArgumentNullException>(() =>
+            RevenueCatIdentitySync.SyncLogoutAsync(null!, NullLogger.Instance, TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task SyncLogoutAsync_NullLogger_ThrowsArgumentNullException()
+        => await Should.ThrowAsync<ArgumentNullException>(() =>
+            RevenueCatIdentitySync.SyncLogoutAsync(Substitute.For<IRevenueCatBilling>(), null!, TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task SyncLogoutAsync_Success_CallsLogout()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        billing.Logout(Arg.Any<CancellationToken>()).Returns(TestFactories.CreateCustomerInfo());
+
+        await RevenueCatIdentitySync.SyncLogoutAsync(billing, NullLogger.Instance, TestContext.Current.CancellationToken);
+
+        await billing.Received(1).Logout(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SyncLogoutAsync_LogoutThrows_SwallowsExceptionInsteadOfPropagating()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        billing.Logout(Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("boom"));
+
+        await Should.NotThrowAsync(() =>
+            RevenueCatIdentitySync.SyncLogoutAsync(billing, NullLogger.Instance, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task SyncLogoutAsync_LogoutThrowsOperationCanceled_Propagates()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        billing.Logout(Arg.Any<CancellationToken>()).ThrowsAsync(new OperationCanceledException());
+
+        await Should.ThrowAsync<OperationCanceledException>(() =>
+            RevenueCatIdentitySync.SyncLogoutAsync(billing, NullLogger.Instance, TestContext.Current.CancellationToken));
+    }
 }
