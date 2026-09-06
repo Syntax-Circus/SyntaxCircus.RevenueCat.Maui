@@ -30,7 +30,11 @@ public static partial class RevenueCatIdentitySync
 
         try
         {
-            await billing.Login(userId, ct).ConfigureAwait(false);
+            var result = await billing.Login(userId, ct).ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                LogSyncFailed(logger, result.ErrorException ?? new InvalidOperationException($"Login failed: {result.Error}"));
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -53,7 +57,11 @@ public static partial class RevenueCatIdentitySync
 
         try
         {
-            await billing.Logout(ct).ConfigureAwait(false);
+            var result = await billing.Logout(ct).ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                LogSyncFailed(logger, result.ErrorException ?? new InvalidOperationException($"Logout failed: {result.Error}"));
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

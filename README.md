@@ -26,6 +26,9 @@ For backend-side RevenueCat integration (webhook verification, REST clients), se
 | `RevenueCatPurchaseOrchestrator.PurchaseAsync(...)` | Resolves a package and starts a purchase flow. |
 | `RevenueCatPurchaseOrchestrator.RestoreAsync(...)` | Restores prior store transactions and re-syncs identity when needed. |
 | `RevenueCatManagementUrl.GetAsync(...)` | Returns the subscription management URL (App Store / Play Store / customer portal) for the current user. |
+| `RevenueCatCustomerInfoReader.GetAsync(...)` / `.IsEntitled(...)` | Reads the current user's active subscriptions/entitlements for immediate client-side UI feedback. |
+| `RevenueCatPaymentEligibility.CanMakePaymentsAsync(...)` | Checks whether the store allows this device/user to make payments, before showing a purchase button. |
+| `RevenueCatSubscriberAttributes.SetEmail(...)` / `SetDisplayName(...)` / `SetPhoneNumber(...)` / `SetAttributes(...)` | Syncs user profile data to RevenueCat as subscriber attributes (e.g. for CRM/support tooling). |
 
 ## Quick start
 
@@ -69,6 +72,14 @@ RevenueCatInitializer.TryInitialize(_billing, _options.Value, options => options
 ```
 
 These are the **public (publishable)** per-platform keys from the RevenueCat dashboard — safe to ship inside the app binary, distinct from the server-side secret key `SyntaxCircus.RevenueCat` uses.
+
+If your app's user id is already known at startup (e.g. the user is already signed in), pass it
+along so RevenueCat initializes directly with that id instead of creating an anonymous user you'd
+otherwise alias later via `SyncLoginAsync`:
+
+```csharp
+RevenueCatInitializer.TryInitialize(_billing, _options.Value, appUserId: userId);
+```
 
 ## Common flows
 
@@ -131,6 +142,56 @@ RevenueCatPurchaseResult restoreResult =
 
 `PurchaseAsync` and `RestoreAsync` only own the store interaction — recording a successful purchase against your own backend (subscriber verification, entitlement grants, etc.) is deliberately left to the caller, the same split `SyntaxCircus.RevenueCat`'s webhook reader uses on the backend side.
 
+A failed `RevenueCatPurchaseResult` also carries `ErrorStatus` — the vendor SDK's typed
+`PurchaseErrorStatus` — alongside the human-readable `ErrorMessage`, so you can `switch` on specific
+failure modes (network error, payment pending, etc.) instead of string-matching:
+
+```csharp
+switch (result.ErrorStatus)
+{
+    case PurchaseErrorStatus.NetworkError:
+        // offer a retry
+        break;
+    case PurchaseErrorStatus.PaymentPendingError:
+        // tell the user the payment is still settling
+        break;
+}
+```
+
+### Customer info & entitlements
+
+```csharp
+RevenueCatCustomerInfo customerInfo = await RevenueCatCustomerInfoReader.GetAsync(billing, ct);
+bool isPro = RevenueCatCustomerInfoReader.IsEntitled(customerInfo, "pro");
+```
+
+> **This is a convenience for perceived responsiveness only, not a source of truth.** Client-reported
+> entitlement info can be stale (the device hasn't synced yet) or spoofed (a jailbroken/rooted device
+> can lie to the SDK). Use it for immediate UI feedback (e.g. showing a "Pro" badge without waiting
+> on a network round trip) — always verify server-side, via `SyntaxCircus.RevenueCat`'s webhook
+> handling and subscriber verification, before actually granting access to paid functionality.
+
+### Payment eligibility
+
+Check before showing a purchase button (e.g. the device may be blocked by parental controls or a
+region restriction):
+
+```csharp
+if (await RevenueCatPaymentEligibility.CanMakePaymentsAsync(billing, ct))
+{
+    // show the purchase button
+}
+```
+
+### Subscriber attributes
+
+```csharp
+RevenueCatSubscriberAttributes.SetEmail(billing, email);
+RevenueCatSubscriberAttributes.SetDisplayName(billing, displayName);
+RevenueCatSubscriberAttributes.SetPhoneNumber(billing, phoneNumber);
+RevenueCatSubscriberAttributes.SetAttributes(billing, new Dictionary<string, string> { ["plan"] = "annual" });
+```
+
 ### Subscription management URL
 
 ```csharp
@@ -149,6 +210,8 @@ silently missing or broken link.
 - The explicit `RevenueCatPlatform` and resolver overloads are the non-breaking escape hatches for tests and custom hosts.
 - `SyncLogoutAsync` mirrors `SyncLoginAsync`'s best-effort swallow-and-log behavior (cancellation still propagates).
 - `RevenueCatManagementUrl.GetAsync` does not swallow exceptions — like `GetCurrentProductsAsync`, it's a direct query and lets failures propagate to the caller.
+- `RevenueCatCustomerInfoReader.GetAsync` and `RevenueCatPaymentEligibility.CanMakePaymentsAsync` also don't swallow exceptions — same direct-query behavior as `RevenueCatManagementUrl.GetAsync`.
+- `RevenueCatPurchaseResult.ErrorStatus` is populated wherever the vendor SDK reports a typed `PurchaseErrorStatus`; it's `null` for outcomes that aren't a store error (e.g. "product not found") and for the thrown-exception fallback path in `RestoreAsync`.
 
 ## Contributing
 

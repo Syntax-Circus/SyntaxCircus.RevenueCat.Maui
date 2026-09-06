@@ -36,7 +36,7 @@ public class RevenueCatIdentitySyncTests
     public async Task SyncLoginAsync_ValidUserId_CallsLogin()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.Login("user1", Arg.Any<CancellationToken>()).Returns(TestFactories.CreateCustomerInfo());
+        billing.Login("user1", Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Value = TestFactories.CreateCustomerInfo() });
 
         await RevenueCatIdentitySync.SyncLoginAsync(billing, "user1", NullLogger.Instance, TestContext.Current.CancellationToken);
 
@@ -44,10 +44,10 @@ public class RevenueCatIdentitySyncTests
     }
 
     [Fact]
-    public async Task SyncLoginAsync_LoginThrows_SwallowsExceptionInsteadOfPropagating()
+    public async Task SyncLoginAsync_LoginReturnsError_SwallowsFailureInsteadOfThrowing()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.Login("user1", Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("boom"));
+        billing.Login("user1", Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { ErrorException = new InvalidOperationException("boom") });
 
         await Should.NotThrowAsync(() =>
             RevenueCatIdentitySync.SyncLoginAsync(billing, "user1", NullLogger.Instance, TestContext.Current.CancellationToken));
@@ -77,7 +77,7 @@ public class RevenueCatIdentitySyncTests
     public async Task SyncLogoutAsync_Success_CallsLogout()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.Logout(Arg.Any<CancellationToken>()).Returns(TestFactories.CreateCustomerInfo());
+        billing.Logout(Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Value = TestFactories.CreateCustomerInfo() });
 
         await RevenueCatIdentitySync.SyncLogoutAsync(billing, NullLogger.Instance, TestContext.Current.CancellationToken);
 
@@ -85,10 +85,10 @@ public class RevenueCatIdentitySyncTests
     }
 
     [Fact]
-    public async Task SyncLogoutAsync_LogoutThrows_SwallowsExceptionInsteadOfPropagating()
+    public async Task SyncLogoutAsync_LogoutReturnsError_SwallowsFailureInsteadOfThrowing()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.Logout(Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("boom"));
+        billing.Logout(Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { ErrorException = new InvalidOperationException("boom") });
 
         await Should.NotThrowAsync(() =>
             RevenueCatIdentitySync.SyncLogoutAsync(billing, NullLogger.Instance, TestContext.Current.CancellationToken));

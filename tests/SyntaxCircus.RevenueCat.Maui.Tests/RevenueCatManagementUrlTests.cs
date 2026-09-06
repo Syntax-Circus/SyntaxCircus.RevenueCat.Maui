@@ -11,7 +11,8 @@ public class RevenueCatManagementUrlTests
     public async Task GetAsync_ValidCall_ReturnsUrlFromBilling()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.GetManagementSubscriptionUrl(Arg.Any<CancellationToken>()).Returns("https://apps.apple.com/account/subscriptions");
+        billing.GetManagementSubscriptionUrl(Arg.Any<CancellationToken>())
+            .Returns(new ManagementUrlResultDto { Value = "https://apps.apple.com/account/subscriptions" });
 
         var result = await RevenueCatManagementUrl.GetAsync(billing, TestContext.Current.CancellationToken);
 
@@ -20,10 +21,11 @@ public class RevenueCatManagementUrlTests
     }
 
     [Fact]
-    public async Task GetAsync_BillingThrows_Propagates()
+    public async Task GetAsync_BillingReturnsError_Throws()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.GetManagementSubscriptionUrl(Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("boom"));
+        billing.GetManagementSubscriptionUrl(Arg.Any<CancellationToken>())
+            .Returns(new ManagementUrlResultDto { ErrorException = new InvalidOperationException("boom") });
 
         await Should.ThrowAsync<InvalidOperationException>(() =>
             RevenueCatManagementUrl.GetAsync(billing, TestContext.Current.CancellationToken));

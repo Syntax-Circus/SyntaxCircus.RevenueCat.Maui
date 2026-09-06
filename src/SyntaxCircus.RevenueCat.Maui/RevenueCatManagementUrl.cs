@@ -18,6 +18,13 @@ public static class RevenueCatManagementUrl
     {
         ArgumentNullException.ThrowIfNull(billing);
 
-        return await billing.GetManagementSubscriptionUrl(ct).ConfigureAwait(false);
+        var result = await billing.GetManagementSubscriptionUrl(ct).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            throw result.ErrorException
+                ?? new InvalidOperationException($"Failed to get RevenueCat management URL: {result.Error}.");
+        }
+
+        return result.Value;
     }
 }

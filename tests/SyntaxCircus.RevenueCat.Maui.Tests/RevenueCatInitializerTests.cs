@@ -52,6 +52,31 @@ public class RevenueCatInitializerTests
     }
 
     [Fact]
+    public void TryInitialize_ExplicitPlatformWithAppUserId_UsesTwoArgOverload()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        var options = new RevenueCatBillingOptions { AndroidApiKey = "android_key", IosApiKey = "ios_key" };
+
+        var result = RevenueCatInitializer.TryInitialize(billing, options, RevenueCatPlatform.Android, "user_1");
+
+        result.ShouldBeTrue();
+        billing.Received(1).Initialize("android_key", "user_1");
+        billing.DidNotReceive().Initialize("android_key");
+    }
+
+    [Fact]
+    public void TryInitialize_ExplicitPlatformWithWhitespaceAppUserId_UsesSingleArgOverload()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        var options = new RevenueCatBillingOptions { AndroidApiKey = "android_key", IosApiKey = "ios_key" };
+
+        var result = RevenueCatInitializer.TryInitialize(billing, options, RevenueCatPlatform.Android, "   ");
+
+        result.ShouldBeTrue();
+        billing.Received(1).Initialize("android_key");
+    }
+
+    [Fact]
     public void TryInitialize_CustomResolver_UsesResolvedKey()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
@@ -64,5 +89,21 @@ public class RevenueCatInitializerTests
 
         result.ShouldBeTrue();
         billing.Received(1).Initialize("ios_key");
+    }
+
+    [Fact]
+    public void TryInitialize_CustomResolverWithAppUserId_UsesTwoArgOverload()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        var options = new RevenueCatBillingOptions { AndroidApiKey = "android_key", IosApiKey = "ios_key" };
+
+        var result = RevenueCatInitializer.TryInitialize(
+            billing,
+            options,
+            o => o.IosApiKey,
+            "user_1");
+
+        result.ShouldBeTrue();
+        billing.Received(1).Initialize("ios_key", "user_1");
     }
 }

@@ -9,7 +9,7 @@ public class RevenueCatPurchaseOrchestratorTests
     {
         var billing = Substitute.For<IRevenueCatBilling>();
         var offering = new OfferingDto { Identifier = "default", IsCurrent = true, AvailablePackages = [.. packages] };
-        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns([offering]);
+        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new OfferingsResultDto { Value = [offering] });
         return billing;
     }
 
@@ -46,7 +46,7 @@ public class RevenueCatPurchaseOrchestratorTests
     {
         var package = CreatePackage("pkg_monthly", "sku_monthly");
         var billing = CreateBillingWithOffering(package);
-        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto { IsSuccess = true });
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto());
 
         var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, "sku_monthly", NullLogger.Instance, TestContext.Current.CancellationToken);
 
@@ -58,7 +58,7 @@ public class RevenueCatPurchaseOrchestratorTests
     {
         var package = CreatePackage("pkg_monthly", "sku_monthly");
         var billing = CreateBillingWithOffering(package);
-        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto { IsSuccess = true });
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto());
 
         var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, "pkg_monthly", NullLogger.Instance, TestContext.Current.CancellationToken);
 
@@ -70,7 +70,7 @@ public class RevenueCatPurchaseOrchestratorTests
     {
         var package = CreatePackage("pkg_monthly", "sku_monthly");
         var billing = CreateBillingWithOffering(package);
-        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto { IsSuccess = true });
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto());
 
         var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, "SKU_MONTHLY", NullLogger.Instance, TestContext.Current.CancellationToken);
 
@@ -82,7 +82,7 @@ public class RevenueCatPurchaseOrchestratorTests
     {
         var package = CreatePackage("pkg-monthly", "sku-monthly");
         var billing = CreateBillingWithOffering(package);
-        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto { IsSuccess = true });
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto());
 
         var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, " sku_monthly ", NullLogger.Instance, TestContext.Current.CancellationToken);
 
@@ -94,7 +94,7 @@ public class RevenueCatPurchaseOrchestratorTests
     {
         var package = CreatePackage("pkg_monthly", "sku_monthly");
         var billing = CreateBillingWithOffering(package);
-        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto { IsSuccess = true });
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto());
 
         var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(
             billing,
@@ -113,7 +113,6 @@ public class RevenueCatPurchaseOrchestratorTests
         var billing = CreateBillingWithOffering(package);
         billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto
         {
-            IsSuccess = true,
             Transaction = TestFactories.CreateStoreTransaction("txn_1"),
         });
         billing.GetAppUserId().Returns("user_1");
@@ -132,14 +131,14 @@ public class RevenueCatPurchaseOrchestratorTests
         var billing = CreateBillingWithOffering(package);
         billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto
         {
-            IsSuccess = false,
-            ErrorStatus = PurchaseErrorStatus.PurchaseCancelledError,
+            Error = PurchaseErrorStatus.PurchaseCancelledError,
         });
 
         var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, "sku_monthly", NullLogger.Instance, TestContext.Current.CancellationToken);
 
         result.Success.ShouldBeFalse();
         result.WasCancelled.ShouldBeTrue();
+        result.ErrorStatus.ShouldBe(PurchaseErrorStatus.PurchaseCancelledError);
     }
 
     [Fact]
@@ -149,8 +148,7 @@ public class RevenueCatPurchaseOrchestratorTests
         var billing = CreateBillingWithOffering(package);
         billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto
         {
-            IsSuccess = false,
-            ErrorStatus = PurchaseErrorStatus.NetworkError,
+            Error = PurchaseErrorStatus.NetworkError,
         });
 
         var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, "sku_monthly", NullLogger.Instance, TestContext.Current.CancellationToken);
@@ -159,6 +157,20 @@ public class RevenueCatPurchaseOrchestratorTests
         result.WasCancelled.ShouldBeFalse();
         result.ErrorMessage.ShouldNotBeNull();
         result.ErrorMessage.ShouldContain("NetworkError");
+        result.ErrorStatus.ShouldBe(PurchaseErrorStatus.NetworkError);
+    }
+
+    [Fact]
+    public async Task PurchaseAsync_OfferingsFailure_ReturnsFailureWithErrorStatus()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new OfferingsResultDto { Error = PurchaseErrorStatus.NetworkError });
+
+        var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, "sku_monthly", NullLogger.Instance, TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeFalse();
+        result.ErrorStatus.ShouldBe(PurchaseErrorStatus.NetworkError);
     }
 
     [Fact]
@@ -175,8 +187,8 @@ public class RevenueCatPurchaseOrchestratorTests
     public async Task RestoreAsync_UserIdProvided_LogsInBeforeRestoring()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.Login("user1", Arg.Any<CancellationToken>()).Returns(TestFactories.CreateCustomerInfo());
-        billing.RestoreTransactions(Arg.Any<CancellationToken>()).Returns(TestFactories.CreateCustomerInfo());
+        billing.Login("user1", Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Value = TestFactories.CreateCustomerInfo() });
+        billing.RestoreTransactions(Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Value = TestFactories.CreateCustomerInfo() });
         billing.GetAppUserId().Returns("user1");
 
         var result = await RevenueCatPurchaseOrchestrator.RestoreAsync(billing, "user1", NullLogger.Instance, TestContext.Current.CancellationToken);
@@ -190,7 +202,7 @@ public class RevenueCatPurchaseOrchestratorTests
     public async Task RestoreAsync_NoUserId_SkipsLogin()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.RestoreTransactions(Arg.Any<CancellationToken>()).Returns(TestFactories.CreateCustomerInfo());
+        billing.RestoreTransactions(Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Value = TestFactories.CreateCustomerInfo() });
 
         await RevenueCatPurchaseOrchestrator.RestoreAsync(billing, null, NullLogger.Instance, TestContext.Current.CancellationToken);
 
@@ -198,15 +210,40 @@ public class RevenueCatPurchaseOrchestratorTests
     }
 
     [Fact]
-    public async Task RestoreAsync_RestoreThrows_ReturnsFailureInsteadOfThrowing()
+    public async Task RestoreAsync_RestoreReturnsError_ReturnsFailureInsteadOfThrowing()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.RestoreTransactions(Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("boom"));
+        billing.RestoreTransactions(Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { ErrorException = new InvalidOperationException("boom") });
 
         var result = await RevenueCatPurchaseOrchestrator.RestoreAsync(billing, null, NullLogger.Instance, TestContext.Current.CancellationToken);
 
         result.Success.ShouldBeFalse();
         result.ErrorMessage.ShouldNotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task RestoreAsync_RestoreReturnsTypedError_SetsErrorStatus()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        billing.RestoreTransactions(Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Error = PurchaseErrorStatus.NetworkError });
+
+        var result = await RevenueCatPurchaseOrchestrator.RestoreAsync(billing, null, NullLogger.Instance, TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeFalse();
+        result.ErrorStatus.ShouldBe(PurchaseErrorStatus.NetworkError);
+    }
+
+    [Fact]
+    public async Task RestoreAsync_LoginReturnsError_ReturnsFailureWithErrorStatus()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        billing.Login("user1", Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Error = PurchaseErrorStatus.NetworkError });
+
+        var result = await RevenueCatPurchaseOrchestrator.RestoreAsync(billing, "user1", NullLogger.Instance, TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeFalse();
+        result.ErrorStatus.ShouldBe(PurchaseErrorStatus.NetworkError);
+        await billing.DidNotReceiveWithAnyArgs().RestoreTransactions(TestContext.Current.CancellationToken);
     }
 
     [Fact]
