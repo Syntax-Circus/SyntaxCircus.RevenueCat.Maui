@@ -34,8 +34,14 @@ public static partial class RevenueCatPurchaseOrchestrator
         ArgumentNullException.ThrowIfNull(billing);
         ArgumentNullException.ThrowIfNull(productIdentifier);
         ArgumentNullException.ThrowIfNull(logger);
-        var offerings = await billing.GetOfferings(forceRefresh: false, cancellationToken: ct).ConfigureAwait(false);
-        var current = offerings.GetCurrent();
+        var offeringsResult = await billing.GetOfferings(forceRefresh: false, cancellationToken: ct).ConfigureAwait(false);
+        if (!offeringsResult.IsSuccess)
+        {
+            LogPurchaseFailed(logger, offeringsResult.Error);
+            return new RevenueCatPurchaseResult(Success: false, ErrorMessage: $"Store error: {offeringsResult.Error}");
+        }
+
+        var current = offeringsResult.Value?.GetCurrent();
         var package = current is null
             ? null
             : packageResolver?.Invoke(current.AvailablePackages, productIdentifier)
@@ -51,13 +57,13 @@ public static partial class RevenueCatPurchaseOrchestrator
 
         if (!storeResult.IsSuccess)
         {
-            if (storeResult.ErrorStatus == PurchaseErrorStatus.PurchaseCancelledError)
+            if (storeResult.Error == PurchaseErrorStatus.PurchaseCancelledError)
             {
                 return new RevenueCatPurchaseResult(Success: false, WasCancelled: true, ErrorMessage: "Purchase cancelled.");
             }
 
-            LogPurchaseFailed(logger, storeResult.ErrorStatus);
-            return new RevenueCatPurchaseResult(Success: false, ErrorMessage: $"Store error: {storeResult.ErrorStatus}");
+            LogPurchaseFailed(logger, storeResult.Error);
+            return new RevenueCatPurchaseResult(Success: false, ErrorMessage: $"Store error: {storeResult.Error}");
         }
 
         return new RevenueCatPurchaseResult(
@@ -108,10 +114,21 @@ public static partial class RevenueCatPurchaseOrchestrator
         {
             if (!string.IsNullOrWhiteSpace(userId))
             {
-                await billing.Login(userId, ct).ConfigureAwait(false);
+                var loginResult = await billing.Login(userId, ct).ConfigureAwait(false);
+                if (!loginResult.IsSuccess)
+                {
+                    LogRestoreFailed(logger, loginResult.ErrorException ?? new InvalidOperationException($"Login failed: {loginResult.Error}"));
+                    return new RevenueCatPurchaseResult(Success: false, ErrorMessage: "Purchase restoration failed. Please try again.");
+                }
             }
 
-            await billing.RestoreTransactions(ct).ConfigureAwait(false);
+            var restoreResult = await billing.RestoreTransactions(ct).ConfigureAwait(false);
+            if (!restoreResult.IsSuccess)
+            {
+                LogRestoreFailed(logger, restoreResult.ErrorException ?? new InvalidOperationException($"RestoreTransactions failed: {restoreResult.Error}"));
+                return new RevenueCatPurchaseResult(Success: false, ErrorMessage: "Purchase restoration failed. Please try again.");
+            }
+
             return new RevenueCatPurchaseResult(Success: true, AppUserId: billing.GetAppUserId());
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

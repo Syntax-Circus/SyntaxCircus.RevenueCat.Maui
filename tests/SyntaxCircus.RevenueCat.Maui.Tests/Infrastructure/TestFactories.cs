@@ -10,7 +10,7 @@ internal static class TestFactories
         NonConsumablePurchases = [],
         FirstSeen = null,
         LatestExpirationDate = null,
-        ManagementURL = string.Empty,
+        ManagementUrl = string.Empty,
         Entitlements = [],
     };
 

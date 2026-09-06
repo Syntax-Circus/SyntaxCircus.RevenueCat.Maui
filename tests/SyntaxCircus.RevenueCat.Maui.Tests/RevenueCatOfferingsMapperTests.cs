@@ -41,7 +41,8 @@ public class RevenueCatOfferingsMapperTests
     {
         var billing = Substitute.For<IRevenueCatBilling>();
         billing.IsInitialized().Returns(true);
-        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns([new OfferingDto { Identifier = "default", IsCurrent = false }]);
+        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new OfferingsResultDto { Value = [new OfferingDto { Identifier = "default", IsCurrent = false }] });
 
         var result = await RevenueCatOfferingsMapper.GetCurrentProductsAsync(billing, ct: TestContext.Current.CancellationToken);
 
@@ -59,7 +60,7 @@ public class RevenueCatOfferingsMapperTests
             IsCurrent = true,
             AvailablePackages = [CreatePackage("pkg_monthly", "sku_monthly")],
         };
-        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns([offering]);
+        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new OfferingsResultDto { Value = [offering] });
 
         var result = await RevenueCatOfferingsMapper.GetCurrentProductsAsync(billing, ct: TestContext.Current.CancellationToken);
 
@@ -77,7 +78,7 @@ public class RevenueCatOfferingsMapperTests
     {
         var billing = Substitute.For<IRevenueCatBilling>();
         billing.IsInitialized().Returns(true);
-        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns([]);
+        billing.GetOfferings(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new OfferingsResultDto { Value = [] });
 
         await RevenueCatOfferingsMapper.GetCurrentProductsAsync(billing, forceRefresh: true, ct: TestContext.Current.CancellationToken);
 

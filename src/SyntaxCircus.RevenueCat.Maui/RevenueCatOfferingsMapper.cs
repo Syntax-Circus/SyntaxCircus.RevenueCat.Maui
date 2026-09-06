@@ -19,8 +19,8 @@ public static class RevenueCatOfferingsMapper
             return [];
         }
 
-        var offerings = await billing.GetOfferings(forceRefresh: forceRefresh, cancellationToken: ct).ConfigureAwait(false);
-        var current = offerings.GetCurrent();
+        var offeringsResult = await billing.GetOfferings(forceRefresh: forceRefresh, cancellationToken: ct).ConfigureAwait(false);
+        var current = offeringsResult.IsSuccess ? offeringsResult.Value?.GetCurrent() : null;
         if (current is null)
         {
             return [];
