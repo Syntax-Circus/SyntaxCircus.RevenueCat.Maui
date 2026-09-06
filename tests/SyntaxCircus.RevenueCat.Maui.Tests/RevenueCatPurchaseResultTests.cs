@@ -12,6 +12,7 @@ public class RevenueCatPurchaseResultTests
         result.AppUserId.ShouldBeNull();
         result.WasCancelled.ShouldBeFalse();
         result.ErrorMessage.ShouldBeNull();
+        result.ErrorStatus.ShouldBeNull();
     }
 
     [Fact]
@@ -22,12 +23,14 @@ public class RevenueCatPurchaseResultTests
             TransactionId: "txn_1",
             AppUserId: "user_1",
             WasCancelled: true,
-            ErrorMessage: "cancelled");
+            ErrorMessage: "cancelled",
+            ErrorStatus: PurchaseErrorStatus.PurchaseCancelledError);
 
         result.Success.ShouldBeFalse();
         result.TransactionId.ShouldBe("txn_1");
         result.AppUserId.ShouldBe("user_1");
         result.WasCancelled.ShouldBeTrue();
         result.ErrorMessage.ShouldBe("cancelled");
+        result.ErrorStatus.ShouldBe(PurchaseErrorStatus.PurchaseCancelledError);
     }
 }

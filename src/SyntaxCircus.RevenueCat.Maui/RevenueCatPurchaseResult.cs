@@ -9,4 +9,5 @@ public sealed record RevenueCatPurchaseResult(
     string? TransactionId = null,
     string? AppUserId = null,
     bool WasCancelled = false,
-    string? ErrorMessage = null);
+    string? ErrorMessage = null,
+    PurchaseErrorStatus? ErrorStatus = null);

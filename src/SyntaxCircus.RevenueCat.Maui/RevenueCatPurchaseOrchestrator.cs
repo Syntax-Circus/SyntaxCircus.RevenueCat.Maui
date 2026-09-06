@@ -38,7 +38,7 @@ public static partial class RevenueCatPurchaseOrchestrator
         if (!offeringsResult.IsSuccess)
         {
             LogPurchaseFailed(logger, offeringsResult.Error);
-            return new RevenueCatPurchaseResult(Success: false, ErrorMessage: $"Store error: {offeringsResult.Error}");
+            return new RevenueCatPurchaseResult(Success: false, ErrorMessage: $"Store error: {offeringsResult.Error}", ErrorStatus: offeringsResult.Error);
         }
 
         var current = offeringsResult.Value?.GetCurrent();
@@ -59,11 +59,11 @@ public static partial class RevenueCatPurchaseOrchestrator
         {
             if (storeResult.Error == PurchaseErrorStatus.PurchaseCancelledError)
             {
-                return new RevenueCatPurchaseResult(Success: false, WasCancelled: true, ErrorMessage: "Purchase cancelled.");
+                return new RevenueCatPurchaseResult(Success: false, WasCancelled: true, ErrorMessage: "Purchase cancelled.", ErrorStatus: storeResult.Error);
             }
 
             LogPurchaseFailed(logger, storeResult.Error);
-            return new RevenueCatPurchaseResult(Success: false, ErrorMessage: $"Store error: {storeResult.Error}");
+            return new RevenueCatPurchaseResult(Success: false, ErrorMessage: $"Store error: {storeResult.Error}", ErrorStatus: storeResult.Error);
         }
 
         return new RevenueCatPurchaseResult(
@@ -118,7 +118,7 @@ public static partial class RevenueCatPurchaseOrchestrator
                 if (!loginResult.IsSuccess)
                 {
                     LogRestoreFailed(logger, loginResult.ErrorException ?? new InvalidOperationException($"Login failed: {loginResult.Error}"));
-                    return new RevenueCatPurchaseResult(Success: false, ErrorMessage: "Purchase restoration failed. Please try again.");
+                    return new RevenueCatPurchaseResult(Success: false, ErrorMessage: "Purchase restoration failed. Please try again.", ErrorStatus: loginResult.Error);
                 }
             }
 
@@ -126,7 +126,7 @@ public static partial class RevenueCatPurchaseOrchestrator
             if (!restoreResult.IsSuccess)
             {
                 LogRestoreFailed(logger, restoreResult.ErrorException ?? new InvalidOperationException($"RestoreTransactions failed: {restoreResult.Error}"));
-                return new RevenueCatPurchaseResult(Success: false, ErrorMessage: "Purchase restoration failed. Please try again.");
+                return new RevenueCatPurchaseResult(Success: false, ErrorMessage: "Purchase restoration failed. Please try again.", ErrorStatus: restoreResult.Error);
             }
 
             return new RevenueCatPurchaseResult(Success: true, AppUserId: billing.GetAppUserId());
