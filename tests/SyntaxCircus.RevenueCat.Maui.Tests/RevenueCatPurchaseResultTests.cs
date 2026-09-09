@@ -13,6 +13,8 @@ public class RevenueCatPurchaseResultTests
         result.WasCancelled.ShouldBeFalse();
         result.ErrorMessage.ShouldBeNull();
         result.ErrorStatus.ShouldBeNull();
+        result.Outcome.ShouldBe(RevenueCatPurchaseOutcome.Succeeded);
+        result.StoreErrorCode.ShouldBeNull();
     }
 
     [Fact]
@@ -32,5 +34,19 @@ public class RevenueCatPurchaseResultTests
         result.WasCancelled.ShouldBeTrue();
         result.ErrorMessage.ShouldBe("cancelled");
         result.ErrorStatus.ShouldBe(PurchaseErrorStatus.PurchaseCancelledError);
+        result.Outcome.ShouldBe(RevenueCatPurchaseOutcome.Cancelled);
+        result.StoreErrorCode.ShouldBe(nameof(PurchaseErrorStatus.PurchaseCancelledError));
+    }
+
+    [Theory]
+    [InlineData(PurchaseErrorStatus.PaymentPendingError, RevenueCatPurchaseOutcome.Pending)]
+    [InlineData(PurchaseErrorStatus.ProductAlreadyPurchasedError, RevenueCatPurchaseOutcome.AlreadyOwned)]
+    [InlineData(PurchaseErrorStatus.NetworkError, RevenueCatPurchaseOutcome.Failed)]
+    public void Outcome_NormalizesTypedStoreError(PurchaseErrorStatus status, RevenueCatPurchaseOutcome expected)
+    {
+        var result = new RevenueCatPurchaseResult(Success: false, ErrorStatus: status);
+
+        result.Outcome.ShouldBe(expected);
+        result.StoreErrorCode.ShouldBe(status.ToString());
     }
 }

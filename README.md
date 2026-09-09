@@ -117,9 +117,22 @@ if (result.Success)
 {
     // record result.TransactionId / result.AppUserId against your own backend here
 }
-else if (result.WasCancelled)
+else if (result.Outcome == RevenueCatPurchaseOutcome.Cancelled)
 {
     // user-initiated cancellation, not an error
+}
+else if (result.Outcome is RevenueCatPurchaseOutcome.Pending or RevenueCatPurchaseOutcome.AlreadyOwned)
+{
+    // Refresh CustomerInfo; the store may already own the product even though no new
+    // transaction completed during this call.
+}
+
+RevenueCatCustomerInfo customer =
+    await RevenueCatCustomerInfoReader.GetAsync(billing, ct);
+
+if (RevenueCatCustomerInfoReader.IsEntitled(customer, "pro"))
+{
+    // Enable the entitled client experience.
 }
 ```
 
@@ -205,6 +218,9 @@ silently missing or broken link.
 ## Behavior notes
 
 - `PurchaseAsync` returns `WasCancelled = true` for a user-cancelled store flow instead of throwing.
+- `PurchaseAsync.Outcome` distinguishes success, cancellation, pending payment, already-owned,
+  and other failures without requiring callers to parse vendor error strings. Existing
+  `Success` and `WasCancelled` behavior remains compatible.
 - `RestoreAsync` logs and returns a failure result for non-cancellation errors.
 - The default `TryInitialize(billing, options)` method keeps the existing compile-time Android/iOS behavior.
 - The explicit `RevenueCatPlatform` and resolver overloads are the non-breaking escape hatches for tests and custom hosts.

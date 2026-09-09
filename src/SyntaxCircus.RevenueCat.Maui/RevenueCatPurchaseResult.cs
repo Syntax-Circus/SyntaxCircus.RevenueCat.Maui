@@ -10,4 +10,27 @@ public sealed record RevenueCatPurchaseResult(
     string? AppUserId = null,
     bool WasCancelled = false,
     string? ErrorMessage = null,
-    PurchaseErrorStatus? ErrorStatus = null);
+    PurchaseErrorStatus? ErrorStatus = null)
+{
+    public RevenueCatPurchaseOutcome Outcome => Success
+        ? RevenueCatPurchaseOutcome.Succeeded
+        : WasCancelled
+            ? RevenueCatPurchaseOutcome.Cancelled
+            : ErrorStatus switch
+            {
+                PurchaseErrorStatus.PaymentPendingError => RevenueCatPurchaseOutcome.Pending,
+                PurchaseErrorStatus.ProductAlreadyPurchasedError => RevenueCatPurchaseOutcome.AlreadyOwned,
+                _ => RevenueCatPurchaseOutcome.Failed,
+            };
+
+    public string? StoreErrorCode => ErrorStatus?.ToString();
+}
+
+public enum RevenueCatPurchaseOutcome
+{
+    Succeeded,
+    Cancelled,
+    Pending,
+    AlreadyOwned,
+    Failed,
+}
