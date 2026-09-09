@@ -139,6 +139,29 @@ public class RevenueCatPurchaseOrchestratorTests
         result.Success.ShouldBeFalse();
         result.WasCancelled.ShouldBeTrue();
         result.ErrorStatus.ShouldBe(PurchaseErrorStatus.PurchaseCancelledError);
+        result.Outcome.ShouldBe(RevenueCatPurchaseOutcome.Cancelled);
+    }
+
+    [Theory]
+    [InlineData(PurchaseErrorStatus.PaymentPendingError, RevenueCatPurchaseOutcome.Pending)]
+    [InlineData(PurchaseErrorStatus.ProductAlreadyPurchasedError, RevenueCatPurchaseOutcome.AlreadyOwned)]
+    [InlineData(PurchaseErrorStatus.NetworkError, RevenueCatPurchaseOutcome.Failed)]
+    public async Task PurchaseAsync_StoreStatus_ReturnsTypedOutcome(
+        PurchaseErrorStatus storeStatus,
+        RevenueCatPurchaseOutcome expectedOutcome)
+    {
+        var package = CreatePackage("pkg_torch", "sku_torch");
+        var billing = CreateBillingWithOffering(package);
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto
+        {
+            Error = storeStatus,
+        });
+
+        var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(
+            billing, "sku_torch", NullLogger.Instance, TestContext.Current.CancellationToken);
+
+        result.Outcome.ShouldBe(expectedOutcome);
+        result.StoreErrorCode.ShouldBe(storeStatus.ToString());
     }
 
     [Fact]
