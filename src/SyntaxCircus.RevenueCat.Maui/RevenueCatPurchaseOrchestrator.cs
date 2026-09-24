@@ -66,11 +66,83 @@ public static partial class RevenueCatPurchaseOrchestrator
             return new RevenueCatPurchaseResult(Success: false, ErrorMessage: $"Store error: {storeResult.Error}", ErrorStatus: storeResult.Error);
         }
 
+        var revenueCatTransactionId = await ResolveRevenueCatTransactionIdAsync(storeResult.Transaction, package, logger, ct).ConfigureAwait(false);
+
         return new RevenueCatPurchaseResult(
             Success: true,
             TransactionId: storeResult.Transaction?.TransactionIdentifier,
+            RevenueCatTransactionId: revenueCatTransactionId,
             AppUserId: billing.GetAppUserId());
     }
+
+    /// <summary>
+    /// Resolves the identifier RevenueCat's webhooks/REST API will report for this purchase.
+    /// On iOS (and any other non-Android TFM) the store's own transaction identifier already
+    /// matches, so this is just <see cref="StoreTransactionDto.TransactionIdentifier"/>. On
+    /// Android the store identifier the app receives is the Play Billing purchase token, which
+    /// RevenueCat never reports back — the matching id is the Play order id, found only via the
+    /// native SDK's <c>NonSubscriptionTransactions</c>. Never throws: any failure or timeout
+    /// (capped around 5s) is logged at warning and resolves to null rather than failing the purchase.
+    /// </summary>
+    private static Task<string?> ResolveRevenueCatTransactionIdAsync(
+        StoreTransactionDto? transaction,
+        PackageDto purchasedPackage,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        if (transaction is null)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+#if ANDROID
+        return ResolveAndroidRevenueCatTransactionIdAsync(transaction, purchasedPackage, logger, ct);
+    }
+
+    private static async Task<string?> ResolveAndroidRevenueCatTransactionIdAsync(
+        StoreTransactionDto transaction,
+        PackageDto purchasedPackage,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(AndroidResolveTimeout);
+
+            var productIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(transaction.ProductIdentifier))
+            {
+                productIds.Add(transaction.ProductIdentifier);
+            }
+
+            if (!string.IsNullOrWhiteSpace(purchasedPackage.Product.Sku))
+            {
+                productIds.Add(purchasedPackage.Product.Sku);
+            }
+
+            var candidates = await AndroidNonSubscriptionTransactionFetcher.GetCandidatesAsync(cts.Token).ConfigureAwait(false);
+            return StoreTransactionIdSelector.Select(candidates, productIds, transaction.PurchaseDate);
+        }
+        catch (OperationCanceledException)
+        {
+            LogAndroidStoreTransactionIdResolutionTimedOut(logger);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LogAndroidStoreTransactionIdResolutionFailed(logger, ex);
+            return null;
+        }
+    }
+#else
+        return Task.FromResult<string?>(transaction.TransactionIdentifier);
+    }
+#endif
+
+#if ANDROID
+    private static readonly TimeSpan AndroidResolveTimeout = TimeSpan.FromSeconds(5);
+#endif
 
     private static bool PackageMatchesProductIdentifier(PackageDto package, string productIdentifier)
     {
@@ -146,4 +218,12 @@ public static partial class RevenueCatPurchaseOrchestrator
 
     [LoggerMessage(Level = LogLevel.Error, Message = "RevenueCat RestoreTransactions failed.")]
     private static partial void LogRestoreFailed(ILogger logger, Exception exception);
+
+#if ANDROID
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Resolving the RevenueCat/Play order id for this purchase timed out; falling back to null.")]
+    private static partial void LogAndroidStoreTransactionIdResolutionTimedOut(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to resolve the RevenueCat/Play order id for this purchase; falling back to null.")]
+    private static partial void LogAndroidStoreTransactionIdResolutionFailed(ILogger logger, Exception exception);
+#endif
 }

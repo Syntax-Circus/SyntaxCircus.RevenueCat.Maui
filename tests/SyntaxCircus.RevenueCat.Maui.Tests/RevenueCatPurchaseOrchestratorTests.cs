@@ -125,6 +125,27 @@ public class RevenueCatPurchaseOrchestratorTests
     }
 
     [Fact]
+    public async Task PurchaseAsync_SuccessfulPurchase_OnNonAndroidTfm_RevenueCatTransactionIdMatchesTransactionId()
+    {
+        // This test project targets net10.0 (not net10.0-android), so it exercises the
+        // #else branch of RevenueCatPurchaseOrchestrator's platform-conditional resolution:
+        // RevenueCatTransactionId should just mirror the store's TransactionIdentifier.
+        var package = CreatePackage("pkg_monthly", "sku_monthly");
+        var billing = CreateBillingWithOffering(package);
+        billing.PurchaseProduct(package, Arg.Any<CancellationToken>()).Returns(new PurchaseResultDto
+        {
+            Transaction = TestFactories.CreateStoreTransaction("txn_1"),
+        });
+        billing.GetAppUserId().Returns("user_1");
+
+        var result = await RevenueCatPurchaseOrchestrator.PurchaseAsync(billing, "sku_monthly", NullLogger.Instance, TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeTrue();
+        result.RevenueCatTransactionId.ShouldBe(result.TransactionId);
+        result.RevenueCatTransactionId.ShouldBe("txn_1");
+    }
+
+    [Fact]
     public async Task PurchaseAsync_UserCancelled_ReturnsWasCancelledTrue()
     {
         var package = CreatePackage("pkg_monthly", "sku_monthly");
