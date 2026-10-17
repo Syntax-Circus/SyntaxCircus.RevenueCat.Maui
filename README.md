@@ -178,6 +178,14 @@ RevenueCatCustomerInfo customerInfo = await RevenueCatCustomerInfoReader.GetAsyn
 bool isPro = RevenueCatCustomerInfoReader.IsEntitled(customerInfo, "pro");
 ```
 
+By default `GetAsync` uses `CustomerInfoFetchPolicy.CachedOrFetched`, which returns the vendor SDK's
+on-device cache even when stale. To read a change made outside the app (a web purchase, a dashboard
+grant), pass a policy from `Kebechet.Maui.RevenueCat.InAppBilling` 10+:
+
+```csharp
+var fresh = await RevenueCatCustomerInfoReader.GetAsync(billing, CustomerInfoFetchPolicy.FetchCurrent, ct);
+```
+
 > **This is a convenience for perceived responsiveness only, not a source of truth.** Client-reported
 > entitlement info can be stale (the device hasn't synced yet) or spoofed (a jailbroken/rooted device
 > can lie to the SDK). Use it for immediate UI feedback (e.g. showing a "Pro" badge without waiting

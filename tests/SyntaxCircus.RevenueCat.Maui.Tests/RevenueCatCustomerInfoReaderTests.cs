@@ -14,7 +14,7 @@ public class RevenueCatCustomerInfoReaderTests
         var customerInfo = TestFactories.CreateCustomerInfo(
             activeSubscriptions: ["sku_monthly"],
             entitlements: [TestFactories.CreateEntitlement("pro", isActive: true)]);
-        billing.GetCustomerInfo(Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Value = customerInfo });
+        billing.GetCustomerInfo(Arg.Any<CustomerInfoFetchPolicy>(), Arg.Any<CancellationToken>()).Returns(new CustomerInfoResultDto { Value = customerInfo });
 
         var result = await RevenueCatCustomerInfoReader.GetAsync(billing, TestContext.Current.CancellationToken);
 
@@ -26,10 +26,42 @@ public class RevenueCatCustomerInfoReaderTests
     }
 
     [Fact]
+    public async Task GetAsync_NoPolicy_UsesCachedOrFetched()
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        billing.GetCustomerInfo(Arg.Any<CustomerInfoFetchPolicy>(), Arg.Any<CancellationToken>())
+            .Returns(new CustomerInfoResultDto { Value = TestFactories.CreateCustomerInfo() });
+
+        await RevenueCatCustomerInfoReader.GetAsync(billing, TestContext.Current.CancellationToken);
+
+        await billing.Received(1).GetCustomerInfo(CustomerInfoFetchPolicy.CachedOrFetched, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(CustomerInfoFetchPolicy.FetchCurrent)]
+    [InlineData(CustomerInfoFetchPolicy.NotStaleCachedOrFetched)]
+    [InlineData(CustomerInfoFetchPolicy.FromCacheOnly)]
+    public async Task GetAsync_WithPolicy_ForwardsPolicy(CustomerInfoFetchPolicy policy)
+    {
+        var billing = Substitute.For<IRevenueCatBilling>();
+        billing.GetCustomerInfo(Arg.Any<CustomerInfoFetchPolicy>(), Arg.Any<CancellationToken>())
+            .Returns(new CustomerInfoResultDto { Value = TestFactories.CreateCustomerInfo() });
+
+        await RevenueCatCustomerInfoReader.GetAsync(billing, policy, TestContext.Current.CancellationToken);
+
+        await billing.Received(1).GetCustomerInfo(policy, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAsync_WithPolicy_NullBilling_ThrowsArgumentNullException()
+        => await Should.ThrowAsync<ArgumentNullException>(() =>
+            RevenueCatCustomerInfoReader.GetAsync(null!, CustomerInfoFetchPolicy.FetchCurrent, TestContext.Current.CancellationToken));
+
+    [Fact]
     public async Task GetAsync_BillingReturnsError_Throws()
     {
         var billing = Substitute.For<IRevenueCatBilling>();
-        billing.GetCustomerInfo(Arg.Any<CancellationToken>())
+        billing.GetCustomerInfo(Arg.Any<CustomerInfoFetchPolicy>(), Arg.Any<CancellationToken>())
             .Returns(new CustomerInfoResultDto { ErrorException = new InvalidOperationException("boom") });
 
         await Should.ThrowAsync<InvalidOperationException>(() =>

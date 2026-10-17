@@ -12,12 +12,26 @@ namespace SyntaxCircus.RevenueCat.Maui;
 /// </remarks>
 public static class RevenueCatCustomerInfoReader
 {
-    /// <summary>Reads the current app user's customer info (active subscriptions and entitlements).</summary>
-    public static async Task<RevenueCatCustomerInfo> GetAsync(IRevenueCatBilling billing, CancellationToken ct = default)
+    /// <summary>
+    /// Reads the current app user's customer info (active subscriptions and entitlements) using
+    /// <see cref="CustomerInfoFetchPolicy.CachedOrFetched"/>, which may return a stale on-device cache.
+    /// </summary>
+    public static Task<RevenueCatCustomerInfo> GetAsync(IRevenueCatBilling billing, CancellationToken ct = default)
+        => GetAsync(billing, CustomerInfoFetchPolicy.CachedOrFetched, ct);
+
+    /// <summary>
+    /// Reads the current app user's customer info (active subscriptions and entitlements), choosing how
+    /// the vendor SDK's on-device cache is used via <paramref name="fetchPolicy"/> (e.g.
+    /// <see cref="CustomerInfoFetchPolicy.FetchCurrent"/> to read a change made outside the app).
+    /// </summary>
+    public static async Task<RevenueCatCustomerInfo> GetAsync(
+        IRevenueCatBilling billing,
+        CustomerInfoFetchPolicy fetchPolicy,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(billing);
 
-        var result = await billing.GetCustomerInfo(ct).ConfigureAwait(false);
+        var result = await billing.GetCustomerInfo(fetchPolicy, ct).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             throw result.ErrorException
